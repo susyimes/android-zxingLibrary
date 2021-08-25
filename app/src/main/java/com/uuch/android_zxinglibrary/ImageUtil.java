@@ -16,14 +16,20 @@
 
 package com.uuch.android_zxinglibrary;
 
+import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.content.ContentUris;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Environment;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
+
+import androidx.core.content.FileProvider;
+
+import java.io.File;
 
 /**
  * 文 件 名: ImageUtil
@@ -46,6 +52,7 @@ public class ImageUtil {
     public static String getImageAbsolutePath(Context context, Uri imageUri) {
         if (context == null || imageUri == null)
             return null;
+
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT && DocumentsContract.isDocumentUri(context, imageUri)) {
             if (isExternalStorageDocument(imageUri)) {
                 String docId = DocumentsContract.getDocumentId(imageUri);
@@ -86,6 +93,32 @@ public class ImageUtil {
             return imageUri.getPath();
         }
         return null;
+    }
+
+    @SuppressLint("NewApi")
+    public static String getRealPathFromUriAboveApiAndroidK(Context context, Uri uri) {
+        String filePath = null;
+        if (DocumentsContract.isDocumentUri(context, uri)) {
+            // 如果是document类型的 uri, 则通过document id来进行处理
+            String documentId = DocumentsContract.getDocumentId(uri);
+            if (isMediaDocument(uri)) {
+                // 使用':'分割
+                String id = documentId.split(":")[1];
+                String selection = MediaStore.Images.Media._ID + "=?";
+                String[] selectionArgs = {id};
+                filePath = getDataColumn(context, MediaStore.Images.Media.EXTERNAL_CONTENT_URI, selection, selectionArgs);
+            } else if (isDownloadsDocument(uri)) {
+                Uri contentUri = ContentUris.withAppendedId(Uri.parse("content://downloads/public_downloads"), Long.valueOf(documentId));
+                filePath = getDataColumn(context, contentUri, null, null);
+            }
+        } else if ("content".equalsIgnoreCase(uri.getScheme())) {
+            // 如果是 content 类型的 Uri
+            filePath = getDataColumn(context, uri, null, null);
+        } else if ("file".equals(uri.getScheme())) {
+            // 如果是 file 类型的 Uri,直接获取图片对应的路径
+            filePath = uri.getPath();
+        }
+        return filePath;
     }
 
     public static String getDataColumn(Context context, Uri uri, String selection, String[] selectionArgs) {
